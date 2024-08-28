@@ -1,52 +1,53 @@
 import streamlit as st
-from openai import OpenAI
+import requests
 
-# Show title and description.
-st.title("Exam Chatbot")
+# Streamlit app
+def main():
+    st.title("IBM AI-Powered Wireless Communication Assistant")
+    st.write("Enter your query related to Wireless Communication:")
 
+    # Input from user
+    user_input = st.text_area("Your Question:", height=100)
+    
+    if st.button("Generate Response"):
+        if user_input.strip():
+            # IBM AI API request parameters
+            url = "https://us-south.ml.cloud.ibm.com"
+            body = {
+                "input": f"""<|system|>
+You are Granite Chat, an AI language model developed by IBM. You are a cautious assistant. You carefully follow instructions. You are helpful and harmless and you follow ethical guidelines and promote positive behavior. You are a AI language model designed to function as a specialized Retrieval Augmented Generation (RAG) assistant. When generating responses, prioritize correctness, i.e., ensure that your response is correct given the context and user query, and that it is grounded in the context. Furthermore, make sure that the response is supported by the given document or context. Always make sure that your response is relevant to the question. If an explanation is needed, first provide the explanation or reasoning, and then give the final answer. Avoid repeating information unless asked.
+You provide answers only to topics related to Wireless communication and nothing else.
+<|assistant|>{user_input}
+""",
+                "parameters": {
+                    "decoding_method": "greedy",
+                    "max_new_tokens": 900,
+                    "repetition_penalty": 1.05
+                },
+                "model_id": "ibm/granite-13b-chat-v2",
+                "project_id": "32d99adf-a1f6-4797-998f-13adc0a7713b"
+            }
 
-# Ask user for their OpenAI API key via `st.text_input`.
-# Alternatively, you can store the API key in `./.streamlit/secrets.toml` and access it
-# via `st.secrets`, see https://docs.streamlit.io/develop/concepts/connections/secrets-management
-openai_api_key = st.text_input(" API Key", type="password")
-if not openai_api_key:
-    st.info("Please add your  API key to continue.", icon="🗝️")
-else:
+            headers = {
+                "Accept": "application/json",
+                "Content-Type": "application/json",
+                "Authorization": "Bearer {{api_key}}"  # Replace with your actual token
+            }
 
-    # Create an OpenAI client.
-    client = OpenAI(api_key=openai_api_key)
+            try:
+                # Make the request to IBM AI API
+                response = requests.post(url, headers=headers, json=body)
+                response.raise_for_status()
+                data = response.json()
+                
+                # Display the AI response
+                st.write("### AI Response:")
+                st.write(data.get('text', "No response received"))
+                
+            except Exception as e:
+                st.error(f"Error: {e}")
+        else:
+            st.warning("Please enter a query.")
 
-    # Create a session state variable to store the chat messages. This ensures that the
-    # messages persist across reruns.
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
-
-    # Display the existing chat messages via `st.chat_message`.
-    for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
-
-    # Create a chat input field to allow the user to enter a message. This will display
-    # automatically at the bottom of the page.
-    if prompt := st.chat_input("What is up?"):
-
-        # Store and display the current prompt.
-        st.session_state.messages.append({"role": "user", "content": prompt})
-        with st.chat_message("user"):
-            st.markdown(prompt)
-
-        # Generate a response using the OpenAI API.
-        stream = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": m["role"], "content": m["content"]}
-                for m in st.session_state.messages
-            ],
-            stream=True,
-        )
-
-        # Stream the response to the chat using `st.write_stream`, then store it in 
-        # session state.
-        with st.chat_message("assistant"):
-            response = st.write_stream(stream)
-        st.session_state.messages.append({"role": "assistant", "content": response})
+if __name__ == "__main__":
+    main()
