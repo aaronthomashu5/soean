@@ -10,9 +10,10 @@ from io import BytesIO
 GOOGLE_GENAI_API_KEY = st.secrets["GOOGLE_API_KEY"]
 genai.configure(api_key=GOOGLE_GENAI_API_KEY)
 
+
 def generate_notes(files, prompt):
     """Generate notes using Gemini API."""
-    model = genai.GenerativeModel('gemini-1.5-flash-002')
+    model = genai.GenerativeModel('gemini-1.5-pro-002')
     
     file_parts = [
         {"mime_type": file.type, "data": file.getvalue()}
