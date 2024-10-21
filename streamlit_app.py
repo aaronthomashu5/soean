@@ -1,65 +1,72 @@
 import streamlit as st
-import requests
+import google.generativeai as genai
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+from io import BytesIO
 
-# Streamlit app
-st.markdown(
-    """
-    <style>
-    .css-1jc7ptx, .e1ewe7hr3, .viewerBadge_container__1QSob,
-    .styles_viewerBadge__1yB5_, .viewerBadge_link__1S137,
-    .viewerBadge_text__1JaDK {
-        display: none;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
-def main():
-    st.title("IBM AI-Powered Wireless Communication Assistant")
-    st.write("Enter your query related to Wireless Communication:")
+# Configure API key
+GOOGLE_GENAI_API_KEY = st.secrets["GOOGLE_API_KEY"]
+genai.configure(api_key=GOOGLE_GENAI_API_KEY)
 
-    # Input from user
-    user_input = st.text_area("Your Question:", height=100)
+def generate_notes(files, prompt):
+    """Generate notes using Gemini API."""
+    model = genai.GenerativeModel('gemini-1.5-flash-002')
     
-    if st.button("Generate Response"):
-        if user_input.strip():
-            # IBM AI API request parameters
-            url = "https://us-south.ml.cloud.ibm.com"
-            body = {
-                "input": f"""<|system|>
-You are Granite Chat, an AI language model developed by IBM. You are a cautious assistant. You carefully follow instructions. You are helpful and harmless and you follow ethical guidelines and promote positive behavior. You are a AI language model designed to function as a specialized Retrieval Augmented Generation (RAG) assistant. When generating responses, prioritize correctness, i.e., ensure that your response is correct given the context and user query, and that it is grounded in the context. Furthermore, make sure that the response is supported by the given document or context. Always make sure that your response is relevant to the question. If an explanation is needed, first provide the explanation or reasoning, and then give the final answer. Avoid repeating information unless asked.
-You provide answers only to topics related to Wireless communication and nothing else.
-<|assistant|>{user_input}
-""",
-                "parameters": {
-                    "decoding_method": "greedy",
-                    "max_new_tokens": 900,
-                    "repetition_penalty": 1.05
-                },
-                "model_id": "ibm/granite-13b-chat-v2",
-                "project_id": "32d99adf-a1f6-4797-998f-13adc0a7713b"
-            }
+    file_parts = [
+        {"mime_type": file.type, "data": file.getvalue()}
+        for file in files
+    ]
+    
+    response = model.generate_content([*file_parts, prompt])
+    
+    return response.text
 
-            headers = {
-                "Accept": "application/json",
-                "Content-Type": "application/json",
-                "Authorization": "Bearer {{api_key}}"  # Replace with your actual token
-            }
+def create_pdf(content):
+    """Create a simple PDF from plain text."""
+    buffer = BytesIO()
+    p = canvas.Canvas(buffer, pagesize=letter)
+    width, height = letter
+    
+    # Use a default font that supports Unicode
+    pdfmetrics.registerFont(TTFont('DejaVuSans', 'DejaVuSans.ttf'))
+    p.setFont('DejaVuSans', 12)
+    
+    y = height - 40
+    for line in content.split('\n'):
+        if y < 40:  # Start a new page if we're near the bottom
+            p.showPage()
+            y = height - 40
+        p.drawString(40, y, line)
+        y -= 15
+    
+    p.showPage()
+    p.save()
+    
+    return buffer.getvalue()
 
-            try:
-                # Make the request to IBM AI API
-                response = requests.post(url, headers=headers, json=body)
-                response.raise_for_status()
-                data = response.json()
-                
-                # Display the AI response
-                st.write("### AI Response:")
-                st.write(data.get('text', "No response received"))
-                
-            except Exception as e:
-                st.error(f"Error: {e}")
-        else:
-            st.warning("Please enter a query.")
+def main():
+    st.title("Engineering Note Generator")
+    
+    uploaded_files = st.file_uploader("Upload documents", accept_multiple_files=True)
+    
+    prompt = st.text_area("Enter the answer scheme and prompt:")
+    
+    if st.button("Generate Notes") and uploaded_files and prompt:
+        with st.spinner("Generating notes..."):
+            generated_content = generate_notes(uploaded_files, prompt)
+        
+        st.subheader("Generated Notes:")
+        st.write(generated_content)
+        
+        pdf = create_pdf(generated_content)
+        st.download_button(
+            label="Download PDF",
+            data=pdf,
+            file_name="engineering_notes.pdf",
+            mime="application/pdf"
+        )
 
 if __name__ == "__main__":
     main()
