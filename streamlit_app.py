@@ -3,6 +3,7 @@ import google.generativeai as genai
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfbase import pdfmetrics
+from reportlab.lib import utils
 from reportlab.pdfbase.ttfonts import TTFont
 from io import BytesIO
 
@@ -25,7 +26,7 @@ def generate_notes(files, prompt):
     return response.text
 
 def create_pdf(content):
-    """Create a simple PDF from plain text."""
+    """Create a simple PDF from plain text with line wrapping."""
     buffer = BytesIO()
     p = canvas.Canvas(buffer, pagesize=letter)
     width, height = letter
@@ -34,19 +35,29 @@ def create_pdf(content):
     pdfmetrics.registerFont(TTFont('DejaVuSans', 'DejaVuSans.ttf'))
     p.setFont('DejaVuSans', 12)
     
-    y = height - 40
+    margin_x = 40
+    margin_y = 40
+    line_height = 15
+    max_width = width - 2 * margin_x
+    
+    y = height - margin_y
+    
+    # Split content by line and then wrap longer lines
     for line in content.split('\n'):
-        if y < 40:  # Start a new page if we're near the bottom
-            p.showPage()
-            y = height - 40
-        p.drawString(40, y, line)
-        y -= 15
+        wrapped_lines = utils.simpleSplit(line, 'DejaVuSans', 12, max_width)
+        for wrapped_line in wrapped_lines:
+            if y < margin_y + line_height:  # Start a new page if we're near the bottom
+                p.showPage()
+                p.setFont('DejaVuSans', 12)
+                y = height - margin_y
+            p.drawString(margin_x, y, wrapped_line)
+            y -= line_height
     
     p.showPage()
     p.save()
     
     return buffer.getvalue()
-
+    
 def main():
     st.title("Engineering Note Generator")
     
