@@ -1,3 +1,3 @@
 streamlit
-googel-generativeai
+google-generativeai
 reportlab
