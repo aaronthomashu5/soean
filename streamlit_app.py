@@ -14,7 +14,11 @@ genai.configure(api_key=GOOGLE_GENAI_API_KEY)
 
 def generate_notes(files, prompt):
     """Generate notes using Gemini API."""
-    model = genai.GenerativeModel('gemini-1.5-pro-002')
+    model = genai.GenerativeModel(model_name="gemini-1.5-pro",
+            generation_config={
+                "max_output_tokens": 8192,
+            },
+            )
     
     file_parts = [
         {"mime_type": file.type, "data": file.getvalue()}
